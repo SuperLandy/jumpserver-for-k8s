@@ -1,0 +1,133 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: jms-nginx
+  namespace: jumpserver
+  labels:
+    k8s-app: jms-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: jms-nginx
+  template:
+    metadata:
+      name: jms-nginx
+      labels:
+        k8s-app: jms-nginx
+    spec:
+      volumes:
+      - name: jms-data              #创建jms-static存储名称
+        persistentVolumeClaim:
+          claimName: jms-data          #绑定到pvc
+          
+      imagePullSecrets:            # 私有仓库认证
+        - name: harborsecret
+      containers:
+        - name: jms-nginx
+          image: jumpserver/jms_nginx:1.5.8
+          tty: true
+          volumeMounts:
+          - mountPath: /opt/jumpserver/data
+            name: jms-data           #使用jms-static存储
+          resources:               # 资源分配以限制
+            requests:
+              cpu: 0.5
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 1024Mi
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10  #在pod启动后延迟30启动存活探针
+            timeoutSeconds: 3        #探针请求超时3秒
+            periodSeconds: 30        #间隔30秒启动存活探针
+            successThreshold: 1      #处于失败状态时，探测操作至少连续1次的成功才被视为检测通过
+            failureThreshold: 3      #处于成功状态时，探测操作至少连续3次的失败才被视为检测不通过
+          readinessProbe:            
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10  # 就绪探针，就绪通过后才向pod传入流量
+            timeoutSeconds: 3
+            periodSeconds: 30
+            successThreshold: 1      #处于失败状态时，探测操作至少连续1次的成功才被视为检测通过
+            failureThreshold: 3      #处于成功状态时，探测操作至少连续3次的失败才被视为检测不通过
+          securityContext:
+            privileged: false
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler   
+  strategy:
+    type: RollingUpdate         #滚动升级策略
+    rollingUpdate:
+      maxUnavailable: 25%       #在滚动升级时最大无效pod数
+      maxSurge: 25%             #最大激增pod数，也就是每次滚动的步长
+  revisionHistoryLimit: 10      #滚动升级历史版本保留10
+  progressDeadlineSeconds: 600  #如在升级过程中卡住（镜像拉取等问题,这个时候还没有明确的升级失败), 如果超过600秒后还是处于卡住状态则pod状态就为false
+status:
+  observedGeneration: 5
+  replicas: 1
+  updatedReplicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: jms-nginx
+  namespace: jumpserver
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: jms-nginx
+  minReplicas: 1
+  maxReplicas: 1  
+  metrics:
+  - type: Resource
+    resource:                         # 超过cpu资源限制的70% 触发扩容
+      name: cpu
+      targetAverageUtilization: 70
+  - type: Resource
+    resource:                         # 超过内存资源限制的70% 触发扩容
+      name: memory            
+      targetAverageUtilization: 70
+      
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: jms-nginx
+  namespace: jumpserver
+  labels:
+    k8s-app: jms-nginx
+spec:
+  ports:
+    - name: nginx-80
+      protocol: TCP
+      port: 80
+      targetPort: 80
+  selector:
+    k8s-app: jms-nginx
+  type: ClusterIP
+  sessionAffinity: None
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jms-nginx
+  namespace: jumpserver
+spec:
+  rules:
+  - host: k8s.jms.com
+    http:
+      paths:
+      - backend:
+          serviceName: jms-nginx
+          servicePort: 80
+

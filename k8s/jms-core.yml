@@ -1,0 +1,145 @@
+# jumpserver 核心服务
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: core
+  namespace: jumpserver
+  labels:
+    k8s-app: core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      k8s-app: core
+  template:
+    metadata:
+      name: core
+      labels:
+        k8s-app: core
+    spec:
+      volumes:
+      - name: jms-data              #创建jms-static存储名称
+        persistentVolumeClaim:
+          claimName: jms-data          #绑定到pvc
+
+      imagePullSecrets:           
+        - name: harborsecret
+      containers:
+        - name: core
+          image: jumpserver/jms_core:1.5.8
+          tty: true
+          volumeMounts:
+          - mountPath: /opt/jumpserver/data
+            name: jms-data           #使用jms-static存储
+
+          env: 
+          - name: SECRET_KEY
+            value: B3f2w8P2PfxIAS7s4URrD9YmSbtqX4vXdPUL217kL9XPUOWrmy
+          - name: BOOTSTRAP_TOKEN
+            value: 7Q11Vz6R2J6BLAdO
+          - name: DB_HOST
+            value: "192.168.1.170"
+          - name: DB_PORT
+            value: "3306"
+          - name: DB_USER
+            value: root
+          - name: DB_PASSWORD
+            value: wuqian
+          - name: DB_NAME
+            value: jumpserver           
+          - name: REDIS_HOST
+            value: jms-redis  
+          - name: REDIS_PORT
+            value: "6379"  
+          - name:  REDIS_PASSWORD  
+            value: 8URXPL2x3HZMi7xoGTdk3Upj
+            
+          resources:               
+            requests:
+              cpu: 0.5
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2048Mi
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10 
+            timeoutSeconds: 3        
+            periodSeconds: 30        
+            successThreshold: 1      
+            failureThreshold: 3     
+          readinessProbe:            
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10  
+            timeoutSeconds: 3
+            periodSeconds: 30
+            successThreshold: 1      
+            failureThreshold: 3      
+          securityContext:
+            privileged: false    
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      schedulerName: default-scheduler   
+  strategy:
+    type: RollingUpdate        
+    rollingUpdate:
+      maxUnavailable: 25%       
+      maxSurge: 25%            
+  revisionHistoryLimit: 10     
+  progressDeadlineSeconds: 600  
+status:
+  observedGeneration: 5
+  replicas: 2
+  updatedReplicas: 2
+  readyReplicas: 2
+  availableReplicas: 2
+
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-core
+  namespace: jumpserver
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: core
+  minReplicas: 2
+  maxReplicas: 4  
+  metrics:
+  - type: Resource
+    resource:                         # 超过cpu资源限制的70% 触发扩容
+      name: cpu
+      targetAverageUtilization: 70
+  - type: Resource
+    resource:                         # 超过内存资源限制的70% 触发扩容
+      name: memory            
+      targetAverageUtilization: 70
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: core
+  namespace: jumpserver
+  labels:
+    k8s-app: core
+spec:
+  ports:
+    - name: core-8080
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - name: core-8070
+      protocol: TCP
+      port: 8070
+      targetPort: 8070
+  selector:
+    k8s-app: core
+  type: ClusterIP
+  sessionAffinity: None
