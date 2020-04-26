@@ -10,7 +10,8 @@ $ kubectl get pod -n jumpserver
 - k8s集群内需要有ingress和hpa组件
 - 存储使用nfs，具体行为在nfs-pv.yml中定义，用户可根据实际情况进行修改
 - koko和gua组件使用的密钥，用户可自行将其加密存放到k8s集群内，这样比较安全
-- yml使用官方镜像，如自行打包的需修改k8s目录下的image
+- yml使用官方镜像，如自行打包的需修改k8s目录下yml文件中的image
+- mysql服务属于有状态卷, 该方案使用外置服务器,需修改k8s/jms-core.yml中的env值
 
 
 
