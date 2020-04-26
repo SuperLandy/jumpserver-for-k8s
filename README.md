@@ -27,7 +27,7 @@ $ docker-compose -f docker-compose-build.yml up
 - 存储使用nfs，具体行为在nfs-pv.yml中定义，用户可根据实际情况进行修改
 - koko和gua组件使用的密钥，用户可自行将其加密存放到k8s集群内，这样比较安全
 
-# 部署过程
+## k8s 部署过程
 ```
 $ git clone --depth=1 https://github.com/SuperLandy/jumpserver-for-k8s
 $ kubectl create ns jumpserver && kubectl apply -f ./k8s
