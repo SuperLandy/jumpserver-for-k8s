@@ -37,8 +37,8 @@ spec:
             value: B3f2w8P2PfxIAS7s4URrD9YmSbtqX4vXdPUL217kL9XPUOWrmy
           - name: BOOTSTRAP_TOKEN
             value: 7Q11Vz6R2J6BLAdO
-          - name: DB_HOST                  #数据库主机
-            value: "192.168.1.170"
+          - name: DB_HOST                  #数据库主机使用endpoint提供
+            value: mysql-jms               
           - name: DB_PORT
             value: "3306"
           - name: DB_USER                  #数据库用户名
