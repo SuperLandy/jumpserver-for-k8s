@@ -18,9 +18,9 @@ spec:
         k8s-app: core
     spec:
       volumes:
-      - name: jms-data              #创建jms-static存储名称
+      - name: jms-data              #创建jms-data存储名称
         persistentVolumeClaim:
-          claimName: jms-data          #绑定到pvc
+          claimName: jms-data          #绑定到pvc, jms-data名称在nfs-pv.yaml定义
 
       imagePullSecrets:           
         - name: harborsecret
@@ -30,7 +30,7 @@ spec:
           tty: true
           volumeMounts:
           - mountPath: /opt/jumpserver/data
-            name: jms-data           #使用jms-static存储
+            name: jms-data           #使用jms-data存储
 
           env: 
           - name: SECRET_KEY
@@ -115,10 +115,6 @@ spec:
   - type: Resource
     resource:                         # 超过cpu资源限制的70% 触发扩容
       name: cpu
-      targetAverageUtilization: 70
-  - type: Resource
-    resource:                         # 超过内存资源限制的70% 触发扩容
-      name: memory            
       targetAverageUtilization: 70
 
 ---
